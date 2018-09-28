@@ -1,0 +1,21 @@
+---
+title: "HW 2 Stopping Distance"
+author: "Chris Trippe"
+date: "9/27/2018"
+output: html_document
+---
+1. In order to approximate appropriate speed limits, it's helpful to understand how many feet a car travels before it can come to a complete stop depending on its speed when it begins to brake. If it's a high traffic zone (lots of cars and/or people), a car must be able to brake in a short distance. A statistical model can help estimate the relationship between a car's speed and the distance needed for it to come to a complete stop. With a greater knowledge of this relationship, proper speed limits can be set and a safer environment created.
+
+2.
+```{r}
+library(ggplot2)
+
+dist_data <- read.table(file = "stop_dist.txt", header = TRUE, sep = "")
+
+ggplot(dist_data, aes(dist_data$Speed, dist_data$Distance)) + 
+  geom_point() +geom_smooth(se = FALSE,method = "lm") + 
+  annotate("text", x = 10,y = 100, label = "Correlation = ") + 
+  annotate("text", x=15,y =100, label = cor(dist_data$Speed, dist_data$Distance), parse = TRUE ) +
+  ylab("Distance") + xlab("Speed")
+
+```
