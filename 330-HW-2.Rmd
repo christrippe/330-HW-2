@@ -9,13 +9,102 @@ output: html_document
 2.
 ```{r}
 library(ggplot2)
+library(MASS)
+library(lmtest)
 
 dist_data <- read.table(file = "stop_dist.txt", header = TRUE, sep = "")
 
+##graph with slr drawn
 ggplot(dist_data, aes(dist_data$Speed, dist_data$Distance)) + 
   geom_point() +geom_smooth(se = FALSE,method = "lm") + 
   annotate("text", x = 10,y = 100, label = "Correlation = ") + 
   annotate("text", x=15,y =100, label = cor(dist_data$Speed, dist_data$Distance), parse = TRUE ) +
   ylab("Distance") + xlab("Speed")
-
 ```
+
+
+```{r}
+##slr data for dist_data
+slr_dist <- lm(dist_data$Distance~dist_data$Speed, data = dist_data)
+
+##residuals vs fitted values scatter plot
+ggplot(data = slr_dist, aes(x = slr_dist$fitted.values, y = slr_dist$residuals)) +
+  geom_point() + ylab("Residuals") + xlab("Fitted Values") +
+  geom_hline(yintercept = 0)
+```
+
+
+```{r}
+##Breusch-Pagan test, equal variance?
+bptest(slr_dist)
+```
+The Breusch-Pagan test gives a p-value of 0.0001376 which means we reject the null hypothesis that the data points have equal variance about the line. Even when examining the Residuals vs Fitted Values Plot, it can be seen that the points are not equally spread on both sides of the line and that the greater the speed, the more spread out the data points become. 
+
+```{r}
+##histogram of standardized residuals
+std_res <- stdres(slr_dist)
+
+ggplot() + geom_histogram(aes(x = std_res, y=..density..), binwidth = 0.25) +
+  geom_density(aes(x = std_res)) + xlab("Standardized Residuals") + ylab("Frequency")
+```
+```{r}
+##KS test for normality
+ks.test(std_res, "pnorm")
+```
+For the Kolmogorov-Smirnov (KS) Test for normality, the p-value is 0.7985 which is large enough to fail to reject the null hypothesis that the standardized residuals are normally distributed. The histogram also appears to be approximately normal.
+
+```{r}
+##checking for outliers
+cook_dist <- cooks.distance(slr_dist)
+outliers <- which(cook_dist > 4/length(cook_dist))
+dist_data[outliers,]
+```
+As can be seen, there are a total of four outliers. They were found using Cooks Distances which checks to see if a linear model without a given data point can accurately predict the stopping distance of a car by using the given data's car speed. If the difference between the estimated stopping distance and actual stopping difference differs too much, the data point is considered an outlier. 
+
+The last assumption that needs to be considered is independence, however, the stopping distance of one car probably shouldn't affect the stopping distance of another. The stopping distances should be independent.
+
+Though the linear model assumptions of normality and independence are acceptable, it fails to have equal variance about the line and there are a few outliers. This would make a simple linear regression model inappropriate for the raw data provided.
+
+3.
+```{r}
+##graph of transformed data with slr drawn
+ggplot(dist_data, aes(dist_data$Speed, sqrt(dist_data$Distance))) + 
+  geom_point() +geom_smooth(se = FALSE,method = "lm") + 
+  annotate("text", x = 10,y = sqrt(100), label = "Correlation = ") + 
+  annotate("text", x= 15,y = sqrt(100), label = cor(dist_data$Speed, sqrt(dist_data$Distance)), parse = TRUE ) +
+  ylab("sqrt(Distance)") + xlab("Speed")
+```
+```{r}
+##slr data after transformation of data
+slr_transform <- lm(sqrt(dist_data$Distance)~dist_data$Speed, data = dist_data)
+
+##residuals vs fitted values scatter plot for transformed data
+ggplot(data = slr_transform, aes(x = slr_transform$fitted.values, y = slr_transform$residuals)) +
+  geom_point() + ylab("Residuals") + xlab("Fitted Values") +
+  geom_hline(yintercept = 0)
+```
+
+```{r}
+##Breusch-Pagan test on transformed data, equal variance?
+bptest(slr_transform)
+```
+
+```{r}
+##histogram of standardized residuals for transformed data
+std_res_t <- stdres(slr_transform)
+
+ggplot() + geom_histogram(aes(x = std_res_t, y=..density..), binwidth = 0.25) +
+  geom_density(aes(x = std_res_t)) + xlab("Standardized Residuals") + ylab("Frequency")
+```
+
+```{r}
+##KS test for normality on transformed data
+ks.test(std_res_t, "pnorm")
+```
+```{r}
+##checking for outliers in transformed data
+cook_dist <- cooks.distance(slr_transform)
+outliers <- which(cook_dist > 4/length(cook_dist))
+dist_data[outliers,]
+```
+
