@@ -4,10 +4,10 @@ author: "Chris Trippe"
 date: "9/27/2018"
 output: html_document
 ---
-1. In order to approximate appropriate speed limits, it's helpful to understand how many feet a car travels before it can come to a complete stop depending on its speed when it begins to brake. If it's a high traffic zone (lots of cars and/or people), a car must be able to brake in a short distance. A statistical model can help estimate the relationship between a car's speed and the distance needed for it to come to a complete stop. With a greater knowledge of this relationship, proper speed limits can be set and a safer environment created.
+1. In order to approximate appropriate speed limits, it's helpful to understand how many feet a car travels before it can come to a complete stop depending on its speed when it begins to brake. If it's a high traffic zone (lots of cars and/or people), a car must be able to brake in a short distance. A statistical model can help predict the stopping distance of a car traveling at a certain speed. The linear model is a quantifiable relationship between speed and stopping distance where speed can be plugged in and stopping distance predicted. With a greater knowledge of this relationship, proper speed limits can be set and a safer environment created.
 
 2.
-```{r}
+```{r, echo = FALSE}
 library(ggplot2)
 library(MASS)
 library(lmtest)
@@ -22,8 +22,9 @@ ggplot(dist_data, aes(dist_data$Speed, dist_data$Distance)) +
   ylab("Distance") + xlab("Speed")
 ```
 
+The model is approximately linear and has a strong positive relationship where correlation is 0.94. The faster a car is traveling, the greater the expected stopping distance will be.
 
-```{r}
+```{r, echo = FALSE}
 ##slr data for dist_data
 slr_dist <- lm(dist_data$Distance~dist_data$Speed, data = dist_data)
 
@@ -34,47 +35,71 @@ ggplot(data = slr_dist, aes(x = slr_dist$fitted.values, y = slr_dist$residuals))
 ```
 
 
-```{r}
+```{r, echo = FALSE}
 ##Breusch-Pagan test, equal variance?
 bptest(slr_dist)
 ```
+
 The Breusch-Pagan test gives a p-value of 0.0001376 which means we reject the null hypothesis that the data points have equal variance about the line. Even when examining the Residuals vs Fitted Values Plot, it can be seen that the points are not equally spread on both sides of the line and that the greater the speed, the more spread out the data points become. 
 
-```{r}
+```{r, echo = FALSE}
 ##histogram of standardized residuals
 std_res <- stdres(slr_dist)
 
 ggplot() + geom_histogram(aes(x = std_res, y=..density..), binwidth = 0.25) +
   geom_density(aes(x = std_res)) + xlab("Standardized Residuals") + ylab("Frequency")
 ```
-```{r}
+```{r, echo = FALSE}
 ##KS test for normality
 ks.test(std_res, "pnorm")
 ```
+
 For the Kolmogorov-Smirnov (KS) Test for normality, the p-value is 0.7985 which is large enough to fail to reject the null hypothesis that the standardized residuals are normally distributed. The histogram also appears to be approximately normal.
 
-```{r}
+```{r, echo = FALSE}
 ##checking for outliers
 cook_dist <- cooks.distance(slr_dist)
 outliers <- which(cook_dist > 4/length(cook_dist))
+plot(cook_dist, type="h", main = "Cook's Distance")
+abline(h = 4/length(cook_dist), col = "red")
+```
+```{r, echo = FALSE}
 dist_data[outliers,]
 ```
-As can be seen, there are a total of four outliers. They were found using Cooks Distances which checks to see if a linear model without a given data point can accurately predict the stopping distance of a car by using the given data's car speed. If the difference between the estimated stopping distance and actual stopping difference differs too much, the data point is considered an outlier. 
+
+
+As can be seen, there are a total of four outliers. They were found using Cooks Distances which checks to see if a linear model without a given data point can accurately predict the stopping distance of a car by using the given data's car speed. If the difference between the estimated stopping distance and actual stopping difference differs too much, the data point is considered an outlier. According to the Cookss Distance graph, two outliers don't appear to be too influential while two are extremely influential. 
 
 The last assumption that needs to be considered is independence, however, the stopping distance of one car probably shouldn't affect the stopping distance of another. The stopping distances should be independent.
 
-Though the linear model assumptions of normality and independence are acceptable, it fails to have equal variance about the line and there are a few outliers. This would make a simple linear regression model inappropriate for the raw data provided.
+Though the linear model assumptions of normality, independence and linearity are acceptable, it fails to have equal variance about the line and there are a few outliers, some of which are extreme. This would make a simple linear regression model inappropriate for the raw data provided.
 
 3.
-```{r}
+```{r, echo = FALSE}
 ##graph of transformed data with slr drawn
 ggplot(dist_data, aes(dist_data$Speed, sqrt(dist_data$Distance))) + 
   geom_point() +geom_smooth(se = FALSE,method = "lm") + 
   annotate("text", x = 10,y = sqrt(100), label = "Correlation = ") + 
   annotate("text", x= 15,y = sqrt(100), label = cor(dist_data$Speed, sqrt(dist_data$Distance)), parse = TRUE ) +
-  ylab("sqrt(Distance)") + xlab("Speed")
+  ylab("sqrt(Distance)") + xlab("Speed") + 
+  ggtitle("Transformed Data") +
+  theme(plot.title = element_text(hjust = 0.5))
 ```
-```{r}
+
+$$\sqrt{\hat{y_i}} = \beta_0 + \beta_1x_i + \epsilon_i \text{ where } \epsilon_i \sim \mathcal{N}(\mu,\,\sigma^{2})$$
+$y_i$ is the sqare rooted expected stopping distance of the $i^{th}$ car.
+$x_i$ is the speed of the $i^{th}$ car.
+$\beta_0$ is the y-intercept; on average, what you would expect the square rooted stopping distance to be if the car speed was 0 ft.
+$\beta_1$ is the slope coefficient; as the car speed increases by 1, the square rooted stopping distance is expected to increase by $\beta_1$, on average.
+$\epsilon_i$ is the residual; the error associated with the $i^{th}$ observation.
+
+When a car's speed is plugged into the the above formula, it will provide an estimated square rooted stopping distance value. When this value is squared, it will give an appropriate estimation of the stopping speed.  
+
+4.
+The four assumptions of a linear model are that the model is linear, the residuals are normally distributed about the line, the variance of the residuals are equal about the line, and the stopping distances are independent of each other. 
+
+The model is approximately linear and has a strong positive relationship where correlation is 0.96. The faster a car is traveling, the greater the expected sqare rooted stopping distance will be.
+```{r, echo = FALSE}
 ##slr data after transformation of data
 slr_transform <- lm(sqrt(dist_data$Distance)~dist_data$Speed, data = dist_data)
 
@@ -84,11 +109,12 @@ ggplot(data = slr_transform, aes(x = slr_transform$fitted.values, y = slr_transf
   geom_hline(yintercept = 0)
 ```
 
-```{r}
+```{r, echo = FALSE}
 ##Breusch-Pagan test on transformed data, equal variance?
 bptest(slr_transform)
 ```
 
+The Breusch-Pagan p-value for the transformed graph provides a much higer p-value (0.0592) than the p-value provided for the raw data (0.0001376). When looking at the graph, the points appear to have approximately equal variance about the line (the spread is almost even on either side of the line), so the variance looks good. 
 ```{r}
 ##histogram of standardized residuals for transformed data
 std_res_t <- stdres(slr_transform)
@@ -97,14 +123,68 @@ ggplot() + geom_histogram(aes(x = std_res_t, y=..density..), binwidth = 0.25) +
   geom_density(aes(x = std_res_t)) + xlab("Standardized Residuals") + ylab("Frequency")
 ```
 
-```{r}
+```{r, echo = FALSE}
 ##KS test for normality on transformed data
 ks.test(std_res_t, "pnorm")
 ```
-```{r}
+
+The p-value for the Kolmogorov-Smirnov (KS) Test of normormality is 0.9676 which means we fail to reject the null hypothesis that the standardized residuals are normally distributed about the transformed linear model. The histogram also has a more normally distributed distribution. 
+```{r, echo = FALSE}
 ##checking for outliers in transformed data
 cook_dist <- cooks.distance(slr_transform)
 outliers <- which(cook_dist > 4/length(cook_dist))
+plot(cook_dist, type="h")
+abline(h = 4/length(cook_dist), col = "red")
+```
+```{r, echo = FALSE}
 dist_data[outliers,]
 ```
 
+Though there are three outliers, they are not as extremely influential as the outliers found in the raw data. 
+
+This particular linear model appears to be acceptible. We will assume independence, even though the raw data was transformed. The residuals are approximately normal about the line, the variance is approximately equal about the line, and the outliers shouldn't be too influential.
+
+5.
+```{r}
+n_cv <- 1000 #number of cross validations
+bias_vec <- rep(NA, n_cv) #vector for biases
+rpmse_vec <- rep(NA, n_cv) #vector for rpmse
+n_test <- 15 #size of test set
+
+for(i in 1:n_cv){
+   
+  #choose which obs. te put in test set
+  test_obs <- sample(1:nrow(dist_data), n_test)
+  
+  #Split data into test and training sets
+  test_set <- dist_data[test_obs,]
+  train_set <- dist_data[-test_obs,]
+  
+  #Using training data to fit a model
+  train_lm <- lm(sqrt(Distance)~Speed, data = train_set)
+  
+  #Predict test set
+  test_preds <- (predict.lm(train.lm, newdata = test_set))^2
+  
+  #Calculate bias
+  bias_vec[i] <- mean(test_preds - test_set$Distance)
+  
+  #Calculate RPMSE
+  rpmse_vec[i] <- sqrt(mean((test_preds - test_set$Distance)^2))
+}
+
+```
+```{r}
+cat("R squared equals",summary(slr_transform)$r.squared)
+cat("\n\nThe bias is", mean(bias_vec))
+cat("\n\nThe root predicted mean square error is", mean(rpmse_vec))
+```
+
+R squared interpretation:
+92.5 percent of the variation in stopping distance is explained away by the car's speed.
+
+Bias interpretation:
+On average, the predictions for stopping distance are 0.2866 feet too high.
+
+Root predicted mean square error interpretation:
+On average, the predicted stopping distances are off by 9.4897 feet.
