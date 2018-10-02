@@ -1,17 +1,25 @@
 ---
 title: "HW 2 Stopping Distance"
-author: "Chris Trippe"
+author: "Chris Trippe & Ethan Kemeny"
 date: "9/27/2018"
 output: html_document
 ---
-1. In order to approximate appropriate speed limits, it's helpful to understand how many feet a car travels before it can come to a complete stop depending on its speed when it begins to brake. If it's a high traffic zone (lots of cars and/or people), a car must be able to brake in a short distance. A statistical model can help predict the stopping distance of a car traveling at a certain speed. The linear model is a quantifiable relationship between speed and stopping distance where speed can be plugged in and stopping distance predicted. With a greater knowledge of this relationship, proper speed limits can be set and a safer environment created.
 
-2.
-```{r, echo = FALSE}
-library(ggplot2)
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+knitr::opts_chunk$set(comment="")
+```
+
+1. In order to approximate appropriate speed limits, it's helpful to understand how many feet a car travels before it can come to a complete stop depending on its speed when it begins to brake. If it's a high traffic zone (lots of cars and/or people), a car must be able to brake in a short distance. A statistical model can help predict the stopping distance of a car traveling at a certain speed. The linear model is a quantifiable relationship between speed and stopping distance where speed can be plugged in and stopping distance predicted. With a greater knowledge of this relationship, proper speed limits can be set and a safer environment created.
+```{r include=FALSE}
+library(tidyverse)
 library(MASS)
 library(lmtest)
+```
 
+2.
+
+```{r, echo = FALSE}
 dist_data <- read.table(file = "stop_dist.txt", header = TRUE, sep = "")
 
 ##graph with slr drawn
@@ -35,35 +43,35 @@ ggplot(data = slr_dist, aes(x = slr_dist$fitted.values, y = slr_dist$residuals))
 ```
 
 
-```{r, echo = FALSE}
+```{r, echo = FALSE, include=FALSE}
 ##Breusch-Pagan test, equal variance?
 bptest(slr_dist)
 ```
 
 The Breusch-Pagan test gives a p-value of 0.0001376 which means we reject the null hypothesis that the data points have equal variance about the line. Even when examining the Residuals vs Fitted Values Plot, it can be seen that the points are not equally spread on both sides of the line and that the greater the speed, the more spread out the data points become. 
 
-```{r, echo = FALSE}
+```{r, echo = FALSE, message=FALSE}
 ##histogram of standardized residuals
 std_res <- stdres(slr_dist)
 
 ggplot() + geom_histogram(aes(x = std_res, y=..density..), binwidth = 0.25) +
   geom_density(aes(x = std_res)) + xlab("Standardized Residuals") + ylab("Frequency")
 ```
-```{r, echo = FALSE}
+```{r, echo = FALSE, message=FALSE, include=FALSE}
 ##KS test for normality
 ks.test(std_res, "pnorm")
 ```
 
 For the Kolmogorov-Smirnov (KS) Test for normality, the p-value is 0.7985 which is large enough to fail to reject the null hypothesis that the standardized residuals are normally distributed. The histogram also appears to be approximately normal.
 
-```{r, echo = FALSE}
+```{r, echo = FALSE, comment=""}
 ##checking for outliers
 cook_dist <- cooks.distance(slr_dist)
 outliers <- which(cook_dist > 4/length(cook_dist))
 plot(cook_dist, type="h", main = "Cook's Distance")
 abline(h = 4/length(cook_dist), col = "red")
 ```
-```{r, echo = FALSE}
+```{r, echo = FALSE, comment=""}
 dist_data[outliers,]
 ```
 
@@ -101,7 +109,7 @@ The four assumptions of a linear model are that the model is linear, the residua
 The model is approximately linear and has a strong positive relationship where correlation is 0.96. The faster a car is traveling, the greater the expected sqare rooted stopping distance will be.
 ```{r, echo = FALSE}
 ##slr data after transformation of data
-slr_transform <- lm(sqrt(dist_data$Distance)~dist_data$Speed, data = dist_data)
+slr_transform <- lm(sqrt(Distance)~Speed, data = dist_data)
 
 ##residuals vs fitted values scatter plot for transformed data
 ggplot(data = slr_transform, aes(x = slr_transform$fitted.values, y = slr_transform$residuals)) +
@@ -109,7 +117,7 @@ ggplot(data = slr_transform, aes(x = slr_transform$fitted.values, y = slr_transf
   geom_hline(yintercept = 0)
 ```
 
-```{r, echo = FALSE}
+```{r, echo = FALSE,message=FALSE, include=FALSE}
 ##Breusch-Pagan test on transformed data, equal variance?
 bptest(slr_transform)
 ```
@@ -123,7 +131,7 @@ ggplot() + geom_histogram(aes(x = std_res_t, y=..density..), binwidth = 0.25) +
   geom_density(aes(x = std_res_t)) + xlab("Standardized Residuals") + ylab("Frequency")
 ```
 
-```{r, echo = FALSE}
+```{r, echo = FALSE, message=FALSE, include=FALSE}
 ##KS test for normality on transformed data
 ks.test(std_res_t, "pnorm")
 ```
@@ -136,7 +144,7 @@ outliers <- which(cook_dist > 4/length(cook_dist))
 plot(cook_dist, type="h")
 abline(h = 4/length(cook_dist), col = "red")
 ```
-```{r, echo = FALSE}
+```{r, echo = FALSE, comment=""}
 dist_data[outliers,]
 ```
 
@@ -153,7 +161,7 @@ n_test <- 15 #size of test set
 
 for(i in 1:n_cv){
    
-  #choose which obs. te put in test set
+  #choose which obs. to put in test set
   test_obs <- sample(1:nrow(dist_data), n_test)
   
   #Split data into test and training sets
@@ -164,7 +172,7 @@ for(i in 1:n_cv){
   train_lm <- lm(sqrt(Distance)~Speed, data = train_set)
   
   #Predict test set
-  test_preds <- (predict.lm(train.lm, newdata = test_set))^2
+  test_preds <- (predict.lm(train_lm, newdata = test_set))^2
   
   #Calculate bias
   bias_vec[i] <- mean(test_preds - test_set$Distance)
@@ -174,17 +182,51 @@ for(i in 1:n_cv){
 }
 
 ```
-```{r}
-cat("R squared equals",summary(slr_transform)$r.squared)
-cat("\n\nThe bias is", mean(bias_vec))
-cat("\n\nThe root predicted mean square error is", mean(rpmse_vec))
+```{r echo=FALSE, comment=""}
+paste0("R squared equals ",summary(slr_transform)$r.squared) %>% writeLines()
+paste0("The bias is ", mean(bias_vec)) %>% writeLines()
+paste0("The root predicted mean square error is ", mean(rpmse_vec)) %>% writeLines()
 ```
 
 R squared interpretation:
-92.5 percent of the variation in stopping distance is explained away by the car's speed.
+92.5 percent of the variation in the square root stopping distance is explained away by the car's speed.
 
 Bias interpretation:
-On average, the predictions for stopping distance are 0.2866 feet too high.
+On average, the predictions for square root stopping distance are 0.2866 feet too high.
 
 Root predicted mean square error interpretation:
-On average, the predicted stopping distances are off by 9.4897 feet.
+On average, the predicted square root stopping distances are off by 9.4897 feet.
+
+
+6.
+
+```{r message=FALSE, include=FALSE}
+#to get the epsilon values
+summary(slr_transform)
+```
+
+
+Our new slr line is
+$$\hat{y_i} =  (0.9323957 + 0.2524660x_i)^2 + \epsilon_i \text{ where } \epsilon_i \sim \mathcal{N}(0,\,0.7209^{2})$$
+From this model, we expect that when speed is 0, the average stopping distance is $0.9323957^2$.  We also expect that for each mph increase in speed, stopping distance will increase by $.2524660^22$ on average.
+```{r echo=FALSE}
+#plots the transformed slr on the original scale graph
+
+new_slr_line <- (slr_transform$coefficients[1] + slr_transform$coefficients[2]*dist_data$Speed)^2
+
+ggplot(dist_data, aes(Speed, Distance)) + geom_point() + geom_line(aes(y = new_slr_line), color = "Red")
+```
+
+7.
+
+```{r}
+#gets predicted values
+dframe <- data.frame(Speed = c(30,35))
+pred_values <- (predict.lm(slr_transform,dframe))^2
+names(pred_values) <- c("30 MPH", "35 MPH")
+```
+When running the values 30, and 35 for speed we estimate these stopping distances
+```{r}
+pred_values
+```
+With these result, we recommend setting the speed to 30 MPH because of the homes along the road.  It can be easy for kids to run on the street and other similar situations along rural roads.  The shorter stopping distance would be safer for everyone involved.
